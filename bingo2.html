@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>ビンゴカード</title>
+    <style>
+        #bingoCard {
+            display: grid; /* グリッドレイアウト */
+            grid-template-columns: repeat(5, 1fr); 
+            /* grid-auto-flow: column;
+            grid-template-rows: repeat(5, auto); */
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 1px solid #000;
+            display: flex; 
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cell.checked {
+            background-color: #676768;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="bingoCard"></div>
+    <div id="sentakuBango"></div>
+    <div id="genzai"></div>
+    <input type="text" id="num" placeholder="数字を入力してください">
+    <input type="button" id="submit" value="送信">
+    <script>
+        const bingoCard = document.getElementById("bingoCard");
+        const sentakuBango = document.getElementById("sentakuBango");
+        const genzai = document.getElementById("genzai");
+        const music = new Audio('bingo.mp3');
+        let cardbango = [];
+        let selectedNums = [];
+        // 5行x5列のビンゴカードを生成
+        function bingocard() {
+            for (let i = 0; i < 5; i++) {
+                cardbango[i] = [];
+                for (let j = 0; j < 5; j++) {
+                    if (i === 2 && j === 2) {
+                        cardbango[i][j] = "FREE";
+                        continue;
+                    }
+                    let num;
+                    // do {
+                    //     let start = i * 20 + 1; // 各列の数値の範囲を20 (1〜19, 20〜39, 40〜59, 60〜79, 80〜99)
+                    //     let end = start + 19; // 各範囲の終点
+                    //     num = Math.floor(Math.random() * (end - start + 1)) + start;
+                    // } while (cardbango[i].includes(num)); // その列で重複している数値を避ける
+                    // cardbango[i][j] = num;
+                    do {
+                        let start, end;
+                        // 列によって異なる数値の範囲を設定
+                        if (j === 0) {
+                            start = 1; // 1列目は1〜19
+                            end = 19;
+                        } else if (j === 1) {
+                            start = 20; // 2列目は20〜39
+                            end = 39;
+                        } else if (j === 2) {
+                            start = 40; // 3列目は40〜59
+                            end = 59;
+                        } else if (j === 3) {
+                            start = 60; // 4列目は60〜79
+                            end = 79;
+                        } else if (j === 4) {
+                            start = 80; // 5列目は80〜99
+                            end = 99;
+                        }
+                        num = Math.floor(Math.random() * (end - start + 1)) + start;
+                    } while (cardbango.flat().includes(num)); // カード全体で重複している数値を避ける
+                    cardbango[i][j] = num;
+                }
+            }
+            return cardbango; // 生成されたカードを返す
+        }
+        // カードを描画する関数
+        function drawCard() {
+            bingoCard.innerHTML = ""; // カードをリセット
+            cardbango.forEach((row, i) => {
+                row.forEach((num, j) => {
+                    const cell = document.createElement("div"); // セルを生成
+                    cell.className = "cell"; // セルにcellクラスを追加
+                    cell.textContent = num; // セルに数字を追加
+                    if (num === "FREE") {
+                        cell.classList.add("FREE"); // セルにFREEクラスを追加
+                    }
+                    cell.addEventListener("click", () => checkNumber(num, cell));
+                    bingoCard.appendChild(cell);
+                });
+            });
+        }     
+        // ナンバーをチェックする関数
+        function checkNumber(number, cell) {
+            if (cell.classList.contains("FREE") || cell.classList.contains("checked")) return;
+            cell.classList.add("checked");
+            selectedNums.push(number);
+            updatesentakuBango();
+            checkBingo();
+        }
+        // 選択された数を更新
+        function updatesentakuBango() {
+            sentakuBango.textContent = "Selected numbers: " + selectedNums.join(", ");
+        }
+        // ビンゴをチェック
+        function checkBingo() {
+            let bingo = false;
+            // 横の行
+            if (cardbango.some(row => row.every(cell => selectedNums.includes(cell) || cell === "FREE"))) {
+                bingo = true;
+            }
+            // 縦の列
+            for (let i = 0; i < 5; i++) {
+                let column = cardbango.map(row => row[i]);
+                if (column.every(cell => selectedNums.includes(cell) || cell === "FREE")) {
+                    bingo = true;
+                    break;
+                }
+            }
+            // 斜めの列
+            let diagonal1 = [0, 1, 2, 3, 4].map(i => cardbango[i][i]);
+            let diagonal2 = [0, 1, 2, 3, 4].map(i => cardbango[i][4 - i]);
+            if (diagonal1.every(cell => selectedNums.includes(cell) || cell === "FREE") ||
+                diagonal2.every(cell => selectedNums.includes(cell) || cell === "FREE")) {
+                bingo = true;
+            }
+    
+            if (bingo) {
+                genzai.textContent = "ビンゴ！";
+                music.play();
+                // ビンゴが達成されたら、全てのセルのクリックイベントを無効化
+                const cells = document.querySelectorAll(".cell");
+                cells.forEach(cell => cell.removeEventListener("click", () => checkNumber(cell.textContent, cell)));
+            } else {
+                genzai.textContent = "";
+            }
+        }
+        // ページがロードされたらビンゴカードを生成
+        window.onload = function () {
+            bingocard();
+            drawCard();
+            // textの値を取得し、inputからcellを検索
+            const text = document.getElementById("num");
+            const button = document.getElementById("submit");
+            button.addEventListener("click", function () {
+                const num = text.value;
+                // 型をnitに変換
+                const num2 = parseInt(num);
+                let cells = document.querySelectorAll(".cell");
+                let cell;
+                for (let i = 0; i < cells.length; i++) {
+                    if (cells[i].textContent === num) {
+                        cell = cells[i];
+                        break;
+                    }
+                }
+                if (cell) {
+                    checkNumber(num2, cell);
+                }
+                text.value = "";
+            });
+        };
+    </script>
+</body>
+
+</html>
